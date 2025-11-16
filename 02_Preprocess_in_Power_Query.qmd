@@ -1,0 +1,111 @@
+---
+title: "Data Preprocessing in Power Query"
+author: "Aleksei Prishchepo"
+date: "2025-11-16"
+fig-format: svg
+number-sections: true
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    highlight-style: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(dpi = 300, fig.width = 8)
+
+library(tidyverse)
+library(skimr)
+library(GGally)
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(tidyr)
+```
+
+## Events
+
+In this section we will create the data preprocessing steps for the
+Events table in Power Query. First we need to load the data. In Power
+Query the data is loaded from the Excel file directly and stored in the
+`dataset` variable.
+
+```{r load-data}
+file_name <- "DataDNA Dataset Challenge - E-commerce Dataset - November 2025.xlsx"
+
+dataset <- readxl::read_xlsx(file_name, sheet = 1)
+```
+
+Next chunk will contain the R code for preprocessing the Events table.
+
+```{r preprocess-events}
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+
+# Set correct data types
+dataset <- dataset |>
+  mutate(
+    `Date` = as.Date(event_date),
+    latitude = as.numeric(latitude),
+    longitude = as.numeric(longitude),
+    quantity = as.numeric(quantity),
+    unit_price_local = as.numeric(unit_price_local),
+    discount_local = as.numeric(discount_local),
+    tax_local = as.numeric(tax_local),
+    net_revenue_local = as.numeric(net_revenue_local),
+    fx_rate_to_usd = as.numeric(fx_rate_to_usd),
+    net_revenue_usd = as.numeric(net_revenue_usd)
+)
+
+# Handle missing values
+dataset <- dataset |>
+  mutate(region = ifelse(is.na(region), "NOAM", as.character(region)))
+dataset <- dataset |> mutate(region = as.factor(region))
+
+# Convert currency to USD
+local_fields <- dataset |>
+  colnames() |>
+  str_subset("_local$")
+
+for (field in local_fields) {
+  usd_field <- str_replace(field, "_local$", "_usd")
+  dataset <- dataset |>
+    mutate(!!sym(usd_field) := !!sym(field) / fx_rate_to_usd)
+}
+
+# Drop local currency fields
+output <- dataset |>
+  select(-all_of(local_fields))
+```
+
+## Customers
+
+Let's create the data preprocessing steps for the Customers table in
+Power Query.
+
+```{r load-data}
+dataset <- readxl::read_xlsx(file_name, sheet = 2)
+```
+
+Next chunk will contain the R code for preprocessing the Customers
+table.
+
+```{r preprocess-events}
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+
+# Handle missing values
+dataset <- dataset |>
+  mutate(region = ifelse(is.na(region), "NOAM", as.character(region)))
+output <- dataset |> mutate(region = as.factor(region))
+
+```
+
+## Products
+
+We don't need to do any preprocessing for the Products table as all
+fields are already in correct format and there are no missing values.
