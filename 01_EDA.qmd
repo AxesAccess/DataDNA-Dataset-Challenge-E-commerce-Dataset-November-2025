@@ -1,0 +1,337 @@
+---
+title: "Exploratory Data Analysis"
+author: "Aleksei Prishchepo"
+date: "2025-11-16"
+fig-format: svg
+number-sections: true
+format:
+  # html:
+  #   toc: true
+  #   toc-depth: 3
+  #   toc-location: left
+  #   highlight-style: tango
+  pdf:
+    papersize: letter
+    toc: true
+    toc-depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(dpi = 300, fig.width = 8)
+
+library(tidyverse)
+library(skimr)
+library(GGally)
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(tidyr)
+```
+
+## Load Data
+
+The dataset is provided in an Excel file with three sheets: events,
+products, and customers. We will load each sheet into a separate data
+frame for analysis.
+
+```{r load-data}
+file_name <- "DataDNA Dataset Challenge - E-commerce Dataset - November 2025.xlsx"
+
+df_events <- readxl::read_xlsx(file_name, sheet = 1)
+df_products <- readxl::read_xlsx(file_name, sheet = 2)
+df_customers <- readxl::read_xlsx(file_name, sheet = 3)
+```
+
+## Data Dictionary
+
+We are provided with the data dictionary. Let's have a look at it to
+understand the fields better.
+
+```{r data-dictionary}
+data_dictionary <- readxl::read_xlsx(file_name, sheet = 4)
+data_dictionary |> na.omit() |>  knitr::kable()
+```
+
+## Data Glimpse
+
+Now let's take a quick look at the values in the fields of each
+dataset.\]
+
+### Events
+
+```{r data-glimpse-events}
+df_events |> glimpse()
+```
+
+### Customers
+
+```{r data-glimpse-customers}
+df_customers |> glimpse()
+```
+
+### Products
+
+```{r data-glimpse-products}
+df_products |> glimpse()
+```
+
+## Field Types
+
+We need to set correct data type for each field.
+
+```{r set-field-types}
+df_events <- df_events |>
+  mutate(
+    event_date = as.POSIXct(event_date,
+      format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
+    ),
+    country = as.factor(country),
+    region = as.factor(region),
+    channel = as.factor(channel),
+    payment_method = as.factor(payment_method),
+    currency = as.factor(currency),
+    latitude = as.numeric(latitude),
+    longitude = as.numeric(longitude),
+    quantity = as.numeric(quantity),
+    unit_price_local = as.numeric(unit_price_local),
+    discount_local = as.numeric(discount_local),
+    tax_local = as.numeric(tax_local),
+    net_revenue_local = as.numeric(net_revenue_local),
+    fx_rate_to_usd = as.numeric(fx_rate_to_usd),
+    net_revenue_usd = as.numeric(net_revenue_usd),
+    refund_datetime = as.POSIXct(refund_datetime,
+      format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
+    ),
+    refund_reason = as.factor(refund_reason)
+  )
+df_customers <- df_customers |>
+  mutate(
+    signup_date = as.POSIXct(signup_date,
+      format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
+    ),
+    region = as.factor(region),
+    country = as.factor(country),
+    currency_preference = as.factor(currency_preference),
+    segment = as.factor(segment),
+    acquisition_channel = as.factor(acquisition_channel),
+    age_band = factor(age_band,
+      levels = c("18-24", "25-34", "35-44", "45-54", "55+")
+    ),
+    country = as.factor(country),
+    country_latitude = as.numeric(country_latitude),
+    country_longitude = as.numeric(country_longitude)
+  )
+df_products <- df_products |>
+  mutate(
+    product_name = as.factor(product_name),
+    category = as.factor(category),
+    billing_cycle = factor(billing_cycle,
+      levels = c("One-time", "Monthly", "Annual")
+    ),
+    first_release_date = as.POSIXct(first_release_date,
+      format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
+    ),
+    vendor = as.factor(vendor),
+    resale_model = as.factor(resale_model),
+    base_price_usd_orig = as.numeric(base_price_usd_orig)
+  )
+
+```
+
+## Summary Statistics
+
+### Events
+
+Events dataset consists of `r nrow(df_events)` rows and `r ncol(df_events)` columns. The `event_date` field ranges from `r min(df_events$event_date)` to `r max(df_events$event_date)`.
+
+```{r summary-statistics}
+skimr::skim(df_events)
+```
+
+### Impute Missing Region Values
+
+We can see that there are 19579 rows with missing `region` values. Let's
+check which countries these rows belong to.
+
+```{r missing-region-countries}
+df_events |>
+  filter(is.na(region)) |>
+  group_by(country) |>
+  summarise(count = n()) |>
+  arrange(desc(count))
+```
+
+We can impute the missing `region` values based on the `country` field
+since each country belongs to a specific region. Missing `region` values
+correspond to countries in North America (US, CA). Therefore, we will
+impute the missing `region` values with "NOAM".
+
+```{r impute-region}
+df_events <- df_events |>
+  mutate(region = ifelse(is.na(region), "NOAM", as.character(region)))
+df_events <- df_events |> mutate(region = as.factor(region))
+```
+
+### Customers
+
+```{r summary-statistics-customers}
+skimr::skim(df_customers)
+```
+
+### Impute Missing Region Values
+
+The `Customers` dataset also has missing values in the `region` field.
+Let's check which countries these rows belong to.
+
+```{r missing-region-customers}
+df_customers |>
+  filter(is.na(region)) |>
+  group_by(country) |>
+  summarise(count = n()) |>
+  arrange(desc(count))
+```
+
+We can impute the missing `region` values based on the `country` field
+since each country belongs to a specific region. Missing `region` values
+correspond to countries in North America (US, CA). Therefore, we will
+impute the missing `region` values with "NOAM".
+
+```{r impute-region-customers}
+df_customers <- df_customers |>
+  mutate(region = ifelse(is.na(region), "NOAM", as.character(region)))
+df_customers <- df_customers |> mutate(region = as.factor(region))
+```
+
+### Products
+
+```{r summary-statistics-products}
+skimr::skim(df_products)
+```
+
+The `Products` dataset has no missing values.
+
+## Univariate Distributions
+
+### Events Categorical Variables
+
+```{r fig-univariate-events-categorical}
+#| fig-height: 6
+#| fig-width: 8
+#| fig-cap: "Bar Plots of Categorical Variables in Events Dataset"
+#| warning: false
+#| message: false
+#| results: 'hide'
+
+# Categorical distributions
+df_events |>
+  select(-longitude, -latitude) |>
+  select(where(is.factor)) |>
+  pivot_longer(everything()) |>
+  ggplot(aes(x = value)) +
+  facet_wrap(~name, scales = "free", ncol = 3) +
+  geom_bar(fill = "steelblue") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_blank())
+```
+
+### Events Numeric Variables
+
+Before doing bivariate analysis, let's convert local currency to USD for
+all relevant fields in the `Events` dataset.
+
+```{r convert-currency}
+local_fields <- df_events |>
+  colnames() |>
+  str_subset("_local$")
+
+for (field in local_fields) {
+  usd_field <- str_replace(field, "_local$", "_usd")
+  df_events <- df_events |>
+    mutate(!!sym(usd_field) := !!sym(field) / fx_rate_to_usd)
+}
+
+# Drop local currency fields
+df_events <- df_events |>
+  select(-all_of(local_fields))
+```
+
+
+```{r fig-univariate-events-hist}
+#| fig-height: 6
+#| fig-width: 8
+#| fig-cap: "Histograms of Numeric Variables in Events Dataset"
+# Numeric distributions
+df_events |>
+  select(-longitude, -latitude) |>
+  select(where(is.numeric)) |>
+  pivot_longer(everything()) |>
+  ggplot(aes(x = value)) +
+  facet_wrap(~name, scales = "free", ncol = 3) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+  theme(axis.title = element_blank())
+```
+
+There is no need to do correlation analysis for the monetary fields. 
+
+### Customers Categorical Variables
+
+```{r fig-univariate-customers-categorical}
+#| fig-height: 6
+#| fig-width: 8
+#| fig-cap: "Bar Plots of Categorical Variables in Customers Dataset"
+
+# Categorical distributions
+df_customers |>
+  select(where(is.factor)) |>
+  pivot_longer(everything()) |>
+  ggplot(aes(x = value)) +
+  facet_wrap(~name, scales = "free", ncol = 3) +
+  geom_bar(fill = "steelblue") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_blank())
+```
+
+### Customers Numeric Variables
+
+Only `country_latitude` and `country_longitude` are numeric variables in the `Customers` dataset. We are not going to do correlation analysis for these fields.
+
+### Products Categorical Variables
+
+```{r fig-univariate-products-categorical}
+#| fig-height: 6
+#| fig-width: 6
+#| fig-cap: "Bar Plots of Categorical Variables in Products Dataset"
+#| warning: false
+
+# Categorical distributions
+df_products |>
+  select(where(is.factor)) |>
+  select(-product_name) |>
+  pivot_longer(everything()) |>
+  ggplot(aes(x = value)) +
+  facet_wrap(~name, scales = "free", ncol = 2) +
+  geom_bar(fill = "steelblue") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_blank())
+```
+
+### Products Numeric Variables
+
+There is only one numeric variable in the `Products` dataset: `base_price_usd_orig`. We will plot its distribution.
+
+```{r fig-univariate-products-numeric}
+#| fig-height: 3
+#| fig-width: 3
+#| fig-cap: "Histograms of Numeric Variables in Products Dataset"
+
+# Numeric distributions
+df_products |>
+  select(where(is.numeric)) |>
+  pivot_longer(everything()) |>
+  ggplot(aes(x = value)) +
+  facet_wrap(~name, scales = "free", ncol = 1) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+  theme(axis.title = element_blank())
+```
+
