@@ -56,7 +56,7 @@ data_dictionary |> na.omit() |>  knitr::kable()
 ## Data Glimpse
 
 Now let's take a quick look at the values in the fields of each
-dataset.\]
+dataset.
 
 ### Events
 
@@ -272,8 +272,34 @@ df_events |>
   theme(axis.title = element_blank())
 ```
 
-There is no need to do correlation analysis for the monetary fields. 
+There is no need to do correlation analysis for the monetary fields.
 
+### Check Integrity of Monetary Fields
+
+Some variables in the `Events` dataset need clarification:
+
+- `quantity`: This field represents the number of units sold in each event.
+- `unit_price_usd`: This field represents the price per unit in USD.
+- `discount_usd`: This field represents the discount applied in USD.
+- `tax_usd`: This field represents the tax applied in USD.
+- `net_revenue_usd`: This field represents the net revenue after discounts and taxes in 
+ USD.
+ 
+ Let's check the integrity of these fields.
+ 
+```{r check-integrity}
+df_events <- df_events |>
+  mutate(
+    calculated_net_revenue = (quantity * unit_price_usd) - discount_usd +
+      tax_usd
+  )
+integrity_issues <- df_events |>
+  filter(abs(calculated_net_revenue - net_revenue_usd) > 0.01)
+integrity_issues_count <- nrow(integrity_issues)
+integrity_issues_count
+```
+It seems that there are `r integrity_issues_count` rows with integrity issues in the monetary fields.
+ 
 ### Customers Categorical Variables
 
 ```{r fig-univariate-customers-categorical}
