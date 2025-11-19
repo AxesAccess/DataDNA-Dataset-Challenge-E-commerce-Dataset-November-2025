@@ -36,6 +36,11 @@ Query the data is loaded from the Excel file directly and stored in the
 file_name <- "DataDNA Dataset Challenge - E-commerce Dataset - November 2025.xlsx"
 
 dataset <- readxl::read_xlsx(file_name, sheet = 1)
+dataset <- dataset |>
+  mutate(
+    event_date = format(event_date, "%d.%m.%Y %H:%M:%S", tz = "UTC")
+  )
+dataset |> head()
 ```
 
 Next chunk will contain the R code for preprocessing the Events table.
@@ -48,6 +53,7 @@ library(tidyr)
 # Set correct data types
 dataset <- dataset |>
   mutate(
+    event_date = as.POSIXct(event_date, format = "%d.%m.%Y %H:%M:%S", tz = "UTC"),
     `Date` = as.Date(event_date),
     latitude = as.numeric(latitude),
     longitude = as.numeric(longitude),
@@ -62,7 +68,7 @@ dataset <- dataset |>
 
 # Handle missing values
 dataset <- dataset |>
-  mutate(region = ifelse(is.na(region), "NOAM", as.character(region)))
+  mutate(region = ifelse(is.na(region) | length(region) == 0, "NOAM", as.character(region)))
 dataset <- dataset |> mutate(region = as.factor(region))
 
 # Convert currency to USD
@@ -76,10 +82,222 @@ for (field in local_fields) {
     mutate(!!sym(usd_field) := !!sym(field) / fx_rate_to_usd)
 }
 
+# Sequence number of purchases per customer
+dataset <- dataset |>
+  arrange(customer_id, event_date) |>
+  group_by(customer_id) |>
+  mutate(purchase_sequence = row_number()) |>
+  ungroup()
+
+# Time to Second Purchase
+dataset <- dataset |>
+  arrange(customer_id, event_date) |>
+  group_by(customer_id) |>
+  mutate(
+    time_to_second_purchase =
+      ifelse(
+        purchase_sequence == 2,
+        as.numeric(difftime(event_date, lag(event_date), units = "days")),
+        NA_real_
+      )
+  ) |>
+  ungroup()
+
+# Time Between Purchases
+dataset <- dataset |>
+  arrange(customer_id, event_date) |>
+  group_by(customer_id) |>
+  mutate(
+    time_between_purchases =
+      ifelse(
+        purchase_sequence > 1,
+        as.numeric(difftime(event_date, lag(event_date), units = "days")),
+        NA_real_
+      )
+  ) |>
+  ungroup()
+
 # Drop local currency fields
-output <- dataset |>
+dataset <- dataset |>
   select(-all_of(local_fields))
+
+output <- dataset |> mutate(
+    event_date = format(event_date, "%d.%m.%Y %H:%M:%S", tz = "UTC")
+  )
+
+output |> head()
 ```
+
+## RFM Segmentation
+
+Here is the R code for RFM analysis that can be implemented in Power Query.
+
+First, we store the preprocessed Events table from the previous step in the `dataset` variable. In Power Query this will be done by referencing the `Events` table.
+
+```{r load-preprocessed-events}
+# Store preprocessed dataset to events variable
+events <- output
+
+# Store preprocessed Events table in dataset variable like in Power Query
+dataset <- events
+```
+
+Next chunk will contain the R code for RFM analysis.
+
+```{r rfm-analysis}
+library(lubridate)
+library(dplyr)
+# Assuming 'dataset' is the preprocessed Events table
+dataset <- dataset |>
+  mutate(event_date = as.POSIXct(event_date, format = "%d.%m.%Y %H:%M:%S", tz = "UTC"))
+# Define the reference date as the latest event date in the dataset
+lastest_date <- max(dataset$event_date, na.rm = TRUE)
+
+output <- dataset |>
+  group_by(customer_id) |>
+  summarise(
+    Recency = as.numeric(difftime(lastest_date, max(event_date), units = "days")),
+    Frequency = n_distinct(event_id),
+    Monetary = sum(net_revenue_usd, na.rm = TRUE)
+  ) |>
+  ungroup()
+# Calculate RFM scores
+output <- output |>
+  mutate(
+    R_Score = ntile(-Recency, 5),
+    F_Score = ntile(Frequency, 5),
+    M_Score = ntile(Monetary, 5),
+    RFM_Score = paste0(R_Score, F_Score, M_Score),
+    RFM_Sum = R_Score + F_Score + M_Score
+  )
+
+output <- output |>
+  mutate(
+    RFM_Level = case_when(
+      R_Score >= 4 & F_Score >= 4 & M_Score >= 4 ~ "Champions",
+      R_Score >= 4 & F_Score >= 3 ~ "Loyal Customers",
+      R_Score >= 4 & F_Score <= 2 ~ "New Customers",
+      R_Score == 3 & F_Score >= 3 ~ "Potential Loyalists",
+      R_Score == 3 & F_Score <= 2 ~ "Promising",
+      R_Score == 2 & F_Score >= 4 ~ "Needs Attention",
+      R_Score <= 2 & F_Score >= 4 ~ "Cannot Lose Them",
+      R_Score <= 2 & F_Score == 3 ~ "At Risk",
+      TRUE ~ "Hibernating"
+    )
+  )
+
+output |> head()
+
+```
+
+Let's check the distribution of RFM Levels.
+
+```{r rfm-level-distribution}
+library(ggplot2)
+ggplot(output, aes(x = RFM_Level)) +
+  geom_bar(fill = "steelblue") +
+  theme_minimal() +
+  labs(title = "Distribution of RFM Levels", x = "RFM Level", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## ABC/XYZ Segmentation
+
+Here is the R code for ABC/XYZ analysis that can be implemented in Power Query.
+
+First, we store the preprocessed Events table from the previous step in the `dataset` variable. In Power Query this will be done by referencing the `Events` table.
+
+```{r load-preprocessed-events-abc-xyz}
+dataset <- events
+```
+
+Next chunk will contain the R code for ABC/XYZ analysis.
+```{r abc-xyz-analysis}
+library(dplyr)
+library(tidyr)
+
+# Assuming 'dataset' is the preprocessed Events table
+dataset <- dataset |>
+  mutate(event_date = as.POSIXct(event_date, 
+                                 format = "%d.%m.%Y %H:%M:%S", tz = "UTC"))
+# Define the reference date as the latest event date in the dataset
+lastest_date <- max(dataset$event_date, na.rm = TRUE)
+output <- dataset |>
+  group_by(product_id) |>
+  summarise(
+    Total_Sales = sum(net_revenue_usd, na.rm = TRUE),
+    Avg_Sales = mean(net_revenue_usd, na.rm = TRUE),
+    SD_Sales = sd(net_revenue_usd, na.rm = TRUE),
+    CoV = ifelse(Avg_Sales != 0, SD_Sales / Avg_Sales, 0)
+  ) |>
+  ungroup()
+
+# ABC Classification based on Total Sales
+output <- output |>
+  arrange(desc(Total_Sales)) |>
+  mutate(
+    Cumulative_Sales = cumsum(Total_Sales),
+    Total_Sales_Sum = sum(Total_Sales),
+    Sales_Percent = Cumulative_Sales / Total_Sales_Sum,
+    ABC_Class = case_when(
+      Sales_Percent <= 0.8 ~ "A",
+      Sales_Percent <= 0.95 ~ "B",
+      TRUE ~ "C"
+    )
+  ) |>
+  select(-Cumulative_Sales, -Total_Sales_Sum, -Sales_Percent)
+
+# XYZ Classification based on Coefficient of Variation
+set.seed(123)
+km <- kmeans(output$CoV, centers = 3)
+
+output$XYZ_Class <- c("X", "Y", "Z")[km$cluster]
+
+means <- tapply(output$CoV, km$cluster, mean)
+mapping <- order(means)
+output$XYZ_Class <- c("X","Y","Z")[mapping[km$cluster]]
+
+
+output <- output |>
+  mutate(ABC_XYZ_Class = paste0(ABC_Class, XYZ_Class))
+
+output |> head()
+```
+
+
+
+
+Let's check the distribution of ABC/XYZ Classes.
+
+```{r abc-xyz-distribution}
+library(ggplot2)
+ggplot(output, aes(x = ABC_XYZ_Class)) +
+  geom_bar(fill = "coral") +
+  theme_minimal() +
+  labs(title = "Distribution of ABC/XYZ Classes", x = "ABC/XYZ Class", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+Let's visualize the distribution of Coefficient of Variation (CoV) with thresholds for Y and Z classes.
+
+```{r abc-xyz-cov-histogram}
+
+Y_threshold <- output[output$XYZ_Class == "Y", "CoV"] |> min(na.rm = TRUE)
+Z_threshold <- output[output$XYZ_Class == "Z", "CoV"] |> min(na.rm = TRUE)
+
+output |> ggplot(aes(x = CoV)) +
+  geom_histogram(bins = 30, fill = "lightblue", color = "black") +
+  labs(
+    title = "Histogram of Coefficient of Variation (CoV)",
+    x = "CoV", y = "Frequency"
+  ) +
+  geom_vline(xintercept = Y_threshold, color = "orange", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = Z_threshold, color = "red", linetype = "dashed", size = 1) +
+  theme_minimal()
+```
+
+XYZ classes separation looks plausible, so we may proceed adding the code to Power Query.
 
 ## Customers
 
@@ -100,7 +318,7 @@ library(tidyr)
 
 # Handle missing values
 dataset <- dataset |>
-  mutate(region = ifelse(is.na(region), "NOAM", as.character(region)))
+  mutate(region = ifelse(is.na(region)| length(region) == 0, "NOAM", as.character(region)))
 output <- dataset |> mutate(region = as.factor(region))
 
 ```
