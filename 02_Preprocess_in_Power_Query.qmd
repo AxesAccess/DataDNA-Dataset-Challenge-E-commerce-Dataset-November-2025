@@ -38,7 +38,8 @@ file_name <- "DataDNA Dataset Challenge - E-commerce Dataset - November 2025.xls
 dataset <- readxl::read_xlsx(file_name, sheet = 1)
 dataset <- dataset |>
   mutate(
-    event_date = format(event_date, "%d.%m.%Y %H:%M:%S", tz = "UTC")
+    event_date = format(event_date, "%d.%m.%Y %H:%M:%S", tz = "UTC"),
+    refund_datetime = format(refund_datetime, "%d.%m.%Y %H:%M:%S", tz = "UTC")
   )
 dataset |> head()
 ```
@@ -54,6 +55,7 @@ library(tidyr)
 dataset <- dataset |>
   mutate(
     event_date = as.POSIXct(event_date, format = "%d.%m.%Y %H:%M:%S", tz = "UTC"),
+    refund_datetime = as.POSIXct(refund_datetime, format = "%d.%m.%Y %H:%M:%S", tz = "UTC"),
     `Date` = as.Date(event_date),
     latitude = as.numeric(latitude),
     longitude = as.numeric(longitude),
@@ -117,29 +119,41 @@ dataset <- dataset |>
   ) |>
   ungroup()
 
+# Time Before Refund
+dataset <- dataset |>
+  mutate(
+    time_to_refund = as.numeric(difftime(refund_datetime, event_date, units = "days")),
+  )
+
 # Drop local currency fields
 dataset <- dataset |>
   select(-all_of(local_fields))
 
 output <- dataset |> mutate(
-    event_date = format(event_date, "%d.%m.%Y %H:%M:%S", tz = "UTC")
+    event_date = format(event_date, "%d.%m.%Y %H:%M:%S", tz = "UTC"),
+    refund_datetime = format(refund_datetime, "%d.%m.%Y %H:%M:%S", tz = "UTC") 
   )
 
 output |> head()
 ```
 
+```{r store-preprocessed-events}
+# Save events to csv
+output |> write.csv("Events.csv", row.names = FALSE)
+```
+
 ## RFM Segmentation
 
-Here is the R code for RFM analysis that can be implemented in Power Query.
+Here is the R code for RFM analysis that can be implemented in Power
+Query.
 
-First, we store the preprocessed Events table from the previous step in the `dataset` variable. In Power Query this will be done by referencing the `Events` table.
+First, we load the preprocessed Events table from the previous step to
+the `dataset` variable. In Power Query this will be done by referencing
+the `Events` table.
 
-```{r load-preprocessed-events}
-# Store preprocessed dataset to events variable
-events <- output
-
-# Store preprocessed Events table in dataset variable like in Power Query
-dataset <- events
+```{r load-preprocessed-events-rfm}
+# Read back the csv file
+dataset <- read.csv("Events.csv")
 ```
 
 Next chunk will contain the R code for RFM analysis.
@@ -203,23 +217,28 @@ ggplot(output, aes(x = RFM_Level)) +
 
 ## ABC/XYZ Segmentation
 
-Here is the R code for ABC/XYZ analysis that can be implemented in Power Query.
+Here is the R code for ABC/XYZ analysis that can be implemented in Power
+Query.
 
-First, we store the preprocessed Events table from the previous step in the `dataset` variable. In Power Query this will be done by referencing the `Events` table.
+First, we store the preprocessed Events table from the previous step in
+the `dataset` variable. In Power Query this will be done by referencing
+the `Events` table.
 
 ```{r load-preprocessed-events-abc-xyz}
-dataset <- events
+dataset <- read.csv("Events.csv")
 ```
 
 Next chunk will contain the R code for ABC/XYZ analysis.
+
 ```{r abc-xyz-analysis}
 library(dplyr)
 library(tidyr)
 
 # Assuming 'dataset' is the preprocessed Events table
 dataset <- dataset |>
-  mutate(event_date = as.POSIXct(event_date, 
-                                 format = "%d.%m.%Y %H:%M:%S", tz = "UTC"))
+  mutate(event_date = as.POSIXct(event_date,
+    format = "%d.%m.%Y %H:%M:%S", tz = "UTC"
+  ))
 # Define the reference date as the latest event date in the dataset
 lastest_date <- max(dataset$event_date, na.rm = TRUE)
 output <- dataset |>
@@ -255,7 +274,7 @@ output$XYZ_Class <- c("X", "Y", "Z")[km$cluster]
 
 means <- tapply(output$CoV, km$cluster, mean)
 mapping <- order(means)
-output$XYZ_Class <- c("X","Y","Z")[mapping[km$cluster]]
+output$XYZ_Class <- c("X", "Y", "Z")[mapping[km$cluster]]
 
 
 output <- output |>
@@ -263,9 +282,6 @@ output <- output |>
 
 output |> head()
 ```
-
-
-
 
 Let's check the distribution of ABC/XYZ Classes.
 
@@ -278,8 +294,8 @@ ggplot(output, aes(x = ABC_XYZ_Class)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-
-Let's visualize the distribution of Coefficient of Variation (CoV) with thresholds for Y and Z classes.
+Let's visualize the distribution of Coefficient of Variation (CoV) with
+thresholds for Y and Z classes.
 
 ```{r abc-xyz-cov-histogram}
 
@@ -297,7 +313,8 @@ output |> ggplot(aes(x = CoV)) +
   theme_minimal()
 ```
 
-XYZ classes separation looks plausible, so we may proceed adding the code to Power Query.
+XYZ classes separation looks plausible, so we may proceed adding the
+code to Power Query.
 
 ## Customers
 
@@ -305,7 +322,7 @@ Let's create the data preprocessing steps for the Customers table in
 Power Query.
 
 ```{r load-data}
-dataset <- readxl::read_xlsx(file_name, sheet = 2)
+dataset <- readxl::read_xlsx(file_name, sheet = 3)
 ```
 
 Next chunk will contain the R code for preprocessing the Customers
