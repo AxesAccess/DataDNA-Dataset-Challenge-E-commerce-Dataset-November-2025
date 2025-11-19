@@ -1,0 +1,184 @@
+---
+title: "Time Series Forecasts"
+format: html
+---
+
+In this notebook we're going to create forecasts for the time series data.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(dpi = 300, fig.width = 8)
+```
+
+
+## Load Data
+
+In Power BI we will reference the s table. Here we will load the data from a CSV file.
+
+```{r load-data}
+library(readr)
+library(dplyr)
+
+dataset <- read_csv("Events.csv")
+dataset <- dataset |>
+  mutate(Date = format(as.Date(Date), "%d.%m.%Y"))
+dataset |> glimpse()
+```
+
+
+
+```{r forecast-by-country}
+
+library(dplyr)
+library(lubridate)
+library(forecast)
+
+dataset <- dataset |> rename(ds = Date)
+dataset$ds <- as.Date(dataset$ds, format = "%d.%m.%Y")
+
+earliest_date <- min(dataset$ds)
+latest_date <- max(dataset$ds)
+
+end_of_year <- as.Date(paste0(year(latest_date), "-12-31"))
+
+# Forecast horizon in days
+h_days <- difftime(end_of_year, latest_date, units = "days") |> as.numeric()
+
+# Aggregate by ds and country
+daily <- dataset |>
+  group_by(country, ds) |>
+  summarise(revenue = sum(net_revenue_usd), .groups = "drop")
+
+# Define modeling function for each country
+forecast_country <- function(df) {
+  country_name <- unique(df$country)
+
+  # Fill missing dates for this country
+  all_days <- tibble(ds = seq(earliest_date, latest_date, by = "day"))
+  df_full <- all_days |>
+    left_join(df, by = "ds") |>
+    mutate(
+      country = country_name,
+      complaints = ifelse(is.na(revenue), 0, revenue)
+    )
+
+  # Skip if too few data points
+  if (nrow(df_full) < 100) {
+    return(
+      tibble(
+        country = country_name,
+        ds = df_full$ds,
+        actual = df_full$complaints,
+        forecast = NA_real_,
+        lower95 = NA_real_,
+        upper95 = NA_real_
+      )
+    )
+  }
+
+  # Convert to daily time series
+  ts_data <- ts(df_full$complaints, frequency = 7) # weekly cycle assumed
+
+  # Fit model
+  # model <- auto.arima(ts_data)
+  model <- tbats(ts_data)
+
+  fc <- forecast(model, h = h_days)
+
+  # Combine historical and forecasted
+  result <- tibble(
+    country = country_name,
+    ds = seq(earliest_date, by = "day", length.out = length(ts_data) + h_days),
+    actual = c(df_full$revenue, rep(NA, h_days)),
+    forecast = c(rep(NA, length(ts_data)), as.numeric(fc$mean)),
+    lower95 = c(rep(NA, length(ts_data)), fc$lower[, 2]),
+    upper95 = c(rep(NA, length(ts_data)), fc$upper[, 2])
+  )
+  return(result)
+}
+
+output <- daily |>
+  group_by(country) |>
+  group_modify(~ forecast_country(.x)) |>
+  ungroup()
+
+output <- output |> rename(Date = ds)
+
+output |> tail()
+```
+
+Plot the results for a sample country.
+
+```{r fig-plot-country-forecast, fig.height=5, fig.width=10}
+library(ggplot2)
+
+sample_country <- "Australia"
+df_plot <- output |> filter(country == sample_country)
+ggplot(df_plot, aes(x = Date)) +
+  geom_line(aes(y = actual), color = "blue") +
+  geom_line(aes(y = forecast), color = "red") +
+  geom_ribbon(aes(ymin = lower95, ymax = upper95), alpha = 0.2, fill = "orange") +
+  labs(
+    title = paste("Revenue Forecast for", sample_country),
+    y = "Revenue (USD)",
+    x = "Date"
+  ) +
+  theme_minimal()
+
+
+```
+
+
+
+## Example for a Single Country
+
+
+```{r}
+df <- daily |> filter(country == "Australia")
+
+country_name <- unique(df$country)
+
+# Fill missing dates for this country
+all_days <- tibble(ds = seq(earliest_date, latest_date, by = "day"))
+
+df_full <- all_days |>
+  left_join(df, by = "ds") |>
+  mutate(
+    country = country_name,
+    complaints = ifelse(is.na(revenue), 0, revenue)
+  )
+
+# Skip if too few data points
+if (nrow(df_full) < 100) {
+  return(
+    tibble(
+      country = country_name,
+      ds = df_full$ds,
+      actual = df_full$complaints,
+      forecast = NA_real_,
+      lower95 = NA_real_,
+      upper95 = NA_real_
+    )
+  )
+}
+
+# Convert to daily time series
+ts_data <- ts(df_full$complaints, frequency = 7)  # weekly cycle assumed
+
+# Fit model
+model <- auto.arima(ts_data)
+
+fc <- forecast(model, h = h_days)
+
+# Combine historical and forecasted
+result <- tibble(
+  country = country_name,
+  ds = seq(earliest_date, by = "day", length.out = length(ts_data) + h_days),
+  actual = c(df_full$revenue, rep(NA, h_days)),
+  forecast = c(rep(NA, length(ts_data)), as.numeric(fc$mean)),
+  lower95 = c(rep(NA, length(ts_data)), fc$lower[,2]),
+  upper95 = c(rep(NA, length(ts_data)), fc$upper[,2])
+)
+
+```
+
