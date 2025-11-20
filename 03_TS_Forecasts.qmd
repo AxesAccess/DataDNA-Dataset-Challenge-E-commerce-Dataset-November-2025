@@ -3,17 +3,18 @@ title: "Time Series Forecasts"
 format: html
 ---
 
-In this notebook we're going to create forecasts for the time series data.
+In this notebook we're going to create forecasts for the time series
+data.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 knitr::opts_chunk$set(dpi = 300, fig.width = 8)
 ```
 
-
 ## Load Data
 
-In Power BI we will reference the s table. Here we will load the data from a CSV file.
+In Power BI we will reference the s table. Here we will load the data
+from a CSV file.
 
 ```{r load-data}
 library(readr)
@@ -25,7 +26,7 @@ dataset <- dataset |>
 dataset |> glimpse()
 ```
 
-
+## Forecast by Country
 
 ```{r forecast-by-country}
 
@@ -59,7 +60,7 @@ forecast_country <- function(df) {
     left_join(df, by = "ds") |>
     mutate(
       country = country_name,
-      complaints = ifelse(is.na(revenue), 0, revenue)
+      revenue = ifelse(is.na(revenue), 0, revenue)
     )
 
   # Skip if too few data points
@@ -68,7 +69,7 @@ forecast_country <- function(df) {
       tibble(
         country = country_name,
         ds = df_full$ds,
-        actual = df_full$complaints,
+        actual = df_full$revenue,
         forecast = NA_real_,
         lower95 = NA_real_,
         upper95 = NA_real_
@@ -77,11 +78,11 @@ forecast_country <- function(df) {
   }
 
   # Convert to daily time series
-  ts_data <- ts(df_full$complaints, frequency = 7) # weekly cycle assumed
+  ts_data <- ts(df_full$revenue, frequency = 7) # weekly cycle assumed
 
   # Fit model
-  # model <- auto.arima(ts_data)
-  model <- tbats(ts_data)
+  model <- auto.arima(ts_data)
+  # model <- tbats(ts_data)
 
   fc <- forecast(model, h = h_days)
 
@@ -107,6 +108,13 @@ output <- output |> rename(Date = ds)
 output |> tail()
 ```
 
+Plot ACF/PACF
+
+```{r}
+library(forecast)
+tsdisplay(ts(daily |> filter(country == "Australia") |> pull(revenue), frequency = 7), main = "ACF for Australia Revenue")
+```
+
 Plot the results for a sample country.
 
 ```{r fig-plot-country-forecast, fig.height=5, fig.width=10}
@@ -128,57 +136,234 @@ ggplot(df_plot, aes(x = Date)) +
 
 ```
 
+## Forecast by Channel
 
+here we repeat the same process but group by sales channel.
 
-## Example for a Single Country
+```{r load-data-channel}
+dataset <- read_csv("Events.csv")
+dataset <- dataset |>
+  mutate(Date = format(as.Date(Date), "%d.%m.%Y"))
+```
 
+```{r forecast-by-channel}
 
-```{r}
-df <- daily |> filter(country == "Australia")
+library(dplyr)
+library(lubridate)
+library(forecast)
 
-country_name <- unique(df$country)
+dataset <- dataset |> rename(ds = Date)
+dataset$ds <- as.Date(dataset$ds, format = "%d.%m.%Y")
 
-# Fill missing dates for this country
-all_days <- tibble(ds = seq(earliest_date, latest_date, by = "day"))
+earliest_date <- min(dataset$ds)
+latest_date <- max(dataset$ds)
 
-df_full <- all_days |>
-  left_join(df, by = "ds") |>
-  mutate(
-    country = country_name,
-    complaints = ifelse(is.na(revenue), 0, revenue)
-  )
+end_of_year <- as.Date(paste0(year(latest_date), "-12-31"))
 
-# Skip if too few data points
-if (nrow(df_full) < 100) {
-  return(
-    tibble(
-      country = country_name,
-      ds = df_full$ds,
-      actual = df_full$complaints,
-      forecast = NA_real_,
-      lower95 = NA_real_,
-      upper95 = NA_real_
+# Forecast horizon in days
+h_days <- difftime(end_of_year, latest_date, units = "days") |> as.numeric()
+
+# Aggregate by ds and channel
+daily <- dataset |>
+  group_by(channel, ds) |>
+  summarise(revenue = sum(net_revenue_usd), .groups = "drop")
+
+# Define modeling function for each country
+forecast_channel <- function(df) {
+  channel_name <- unique(df$channel)
+
+  # Fill missing dates for this country
+  all_days <- tibble(ds = seq(earliest_date, latest_date, by = "day"))
+  df_full <- all_days |>
+    left_join(df, by = "ds") |>
+    mutate(
+      channel = channel_name,
+      revenue = ifelse(is.na(revenue), 0, revenue)
     )
+
+  # Skip if too few data points
+  if (nrow(df_full) < 100) {
+    return(
+      tibble(
+        channel = channel_name,
+        ds = df_full$ds,
+        actual = df_full$revenue,
+        forecast = NA_real_,
+        lower95 = NA_real_,
+        upper95 = NA_real_
+      )
+    )
+  }
+
+  # Convert to daily time series
+  ts_data <- ts(df_full$revenue, frequency = 7) # weekly cycle assumed
+
+  # Fit model
+  model <- auto.arima(ts_data)
+  # model <- tbats(ts_data)
+
+  fc <- forecast(model, h = h_days)
+
+  # Combine historical and forecasted
+  result <- tibble(
+    channel = channel_name,
+    ds = seq(earliest_date, by = "day", length.out = length(ts_data) + h_days),
+    actual = c(df_full$revenue, rep(NA, h_days)),
+    forecast = c(rep(NA, length(ts_data)), as.numeric(fc$mean)),
+    lower95 = c(rep(NA, length(ts_data)), fc$lower[, 2]),
+    upper95 = c(rep(NA, length(ts_data)), fc$upper[, 2])
   )
+  return(result)
 }
 
-# Convert to daily time series
-ts_data <- ts(df_full$complaints, frequency = 7)  # weekly cycle assumed
+output <- daily |>
+  group_by(channel) |>
+  group_modify(~ forecast_channel(.x)) |>
+  ungroup()
 
-# Fit model
-model <- auto.arima(ts_data)
+output <- output |> rename(Date = ds)
 
-fc <- forecast(model, h = h_days)
+output |> tail()
+```
 
-# Combine historical and forecasted
-result <- tibble(
-  country = country_name,
-  ds = seq(earliest_date, by = "day", length.out = length(ts_data) + h_days),
-  actual = c(df_full$revenue, rep(NA, h_days)),
-  forecast = c(rep(NA, length(ts_data)), as.numeric(fc$mean)),
-  lower95 = c(rep(NA, length(ts_data)), fc$lower[,2]),
-  upper95 = c(rep(NA, length(ts_data)), fc$upper[,2])
-)
+Plot the results for a sample channel
+
+```{r fig-plot-channel-forecast, fig.height=5, fig.width=10}
+library(ggplot2)
+
+sample_channel <- "Direct Sales"
+df_plot <- output |> filter(channel == sample_channel)
+ggplot(df_plot, aes(x = Date)) +
+  geom_line(aes(y = actual), color = "blue") +
+  geom_line(aes(y = forecast), color = "red") +
+  geom_ribbon(aes(ymin = lower95, ymax = upper95), alpha = 0.2, fill = "orange") +
+  labs(
+    title = paste("Revenue Forecast for", sample_channel),
+    y = "Revenue (USD)",
+    x = "Date"
+  ) +
+  theme_minimal()
+
 
 ```
 
+## Forecast by Category
+
+Next, we will forecast by product category. For this we need to load the
+product data to get the category information.
+
+```{r load-data-category}
+dataset <- read_csv("Events.csv")
+dataset <- dataset |>
+  mutate(Date = format(as.Date(Date), "%d.%m.%Y"))
+
+file_name <- "DataDNA Dataset Challenge - E-commerce Dataset - November 2025.xlsx"
+products <- readxl::read_xlsx(file_name, sheet = 2) |>
+  select(product_id, category)
+
+dataset <- dataset |> left_join(products, by = "product_id")
+
+```
+
+The code below will be added as a step in Power Query.
+
+```{r forecast-by-category}
+
+library(dplyr)
+library(lubridate)
+library(forecast)
+
+dataset <- dataset |> rename(ds = Date)
+dataset$ds <- as.Date(dataset$ds, format = "%d.%m.%Y")
+
+earliest_date <- min(dataset$ds)
+latest_date <- max(dataset$ds)
+
+end_of_year <- as.Date(paste0(year(latest_date), "-12-31"))
+
+# Forecast horizon in days
+h_days <- difftime(end_of_year, latest_date, units = "days") |> as.numeric()
+
+# Aggregate by ds and category
+daily <- dataset |>
+  group_by(category, ds) |>
+  summarise(revenue = sum(net_revenue_usd), .groups = "drop")
+
+# Define modeling function for each category
+forecast_category <- function(df) {
+  category_name <- unique(df$category)
+
+  # Fill missing dates for this category
+  all_days <- tibble(ds = seq(earliest_date, latest_date, by = "day"))
+  df_full <- all_days |>
+    left_join(df, by = "ds") |>
+    mutate(
+      category = category_name,
+      revenue = ifelse(is.na(revenue), 0, revenue)
+    )
+
+  # Skip if too few data points
+  if (nrow(df_full) < 100) {
+    return(
+      tibble(
+        category = category_name,
+        ds = df_full$ds,
+        actual = df_full$revenue,
+        forecast = NA_real_,
+        lower95 = NA_real_,
+        upper95 = NA_real_
+      )
+    )
+  }
+
+  # Convert to daily time series
+  ts_data <- ts(df_full$revenue, frequency = 7) # weekly cycle assumed
+
+  # Fit model
+  model <- auto.arima(ts_data)
+  # model <- tbats(ts_data)
+
+  fc <- forecast(model, h = h_days)
+
+  # Combine historical and forecasted
+  result <- tibble(
+    category = category_name,
+    ds = seq(earliest_date, by = "day", length.out = length(ts_data) + h_days),
+    actual = c(df_full$revenue, rep(NA, h_days)),
+    forecast = c(rep(NA, length(ts_data)), as.numeric(fc$mean)),
+    lower95 = c(rep(NA, length(ts_data)), fc$lower[, 2]),
+    upper95 = c(rep(NA, length(ts_data)), fc$upper[, 2])
+  )
+  return(result)
+}
+
+output <- daily |>
+  group_by(category) |>
+  group_modify(~ forecast_category(.x)) |>
+  ungroup()
+
+output <- output |> rename(Date = ds)
+
+output |> tail()
+```
+
+Plot the results for a sample category
+
+```{r fig-plot-category-forecast, fig.height=5, fig.width=10}
+library(ggplot2)
+
+sample_category <- "AI Productivity"
+df_plot <- output |> filter(category == sample_category)
+ggplot(df_plot, aes(x = Date)) +
+  geom_line(aes(y = actual), color = "blue") +
+  geom_line(aes(y = forecast), color = "red") +
+  geom_ribbon(aes(ymin = lower95, ymax = upper95), alpha = 0.2, fill = "orange") +
+  labs(
+    title = paste("Revenue Forecast for", sample_category),
+    y = "Revenue (USD)",
+    x = "Date"
+  ) +
+  theme_minimal()
+
+
+```
