@@ -1,0 +1,220 @@
+---
+title: "Dashboard_Structure"
+author: "Aleksei Prishchepo"
+date: "2025-11-19"
+fig-format: svg
+number-sections: true
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    highlight-style: tango
+    css: styles.css
+---
+
+## Summary (Home Page)
+
+Give leadership a quick understanding of the business and dataset.
+
+### KPIs
+
+-   [ ] Total Revenue YTD (USD)
+
+-   [ ] Total + Forecast
+
+-   [ ] Num Sales
+
+-   [ ] Active Customers
+
+### Key Visuals
+
+-   [ ] Revenue by Month
+
+-   [ ] Revenue by Category
+
+-   [ ] Revenue by Country
+
+-   [ ] Revenue by Sales Channel
+
+## Trends
+
+### Visuals
+
+-   [ ] Monthly Net Revenue (USD)
+
+-   [ ] Monthly Quantity Sold
+
+-   [ ] Revenue by Region
+
+-   [ ] Channel-Month Heatmap Channels
+
+------------------------------------------------------------------------
+
+## Loyalty
+
+### KPIs
+
+-   [ ] Repeat Buyers
+
+-   [ ] Time to Second Purchase (median)
+
+-   [ ] Loyal Customer Count (≥2 purchases)
+
+-   [ ] LTV
+
+### Visuals
+
+-   [ ] Cohort Retention Chart
+
+-   [ ] Days to Second Purchase (distribution)
+
+-   [ ] Repeat Rate by Channel
+
+-   [ ] Repeat Rate by Segment (Consumer, SOHO, SMB, Enterprise)
+
+-   [ ] Customer Dimension Enrichment (based on EDA fields)
+
+-   [ ] Country
+
+-   [ ] Region
+
+-   [ ] Acquisition channel
+
+-   [ ] Age band
+
+-   [ ] Currency preference
+
+------------------------------------------------------------------------
+
+## Channels
+
+### KPIs
+
+-   [ ] Revenue by Channel
+
+-   [ ] Orders vs Refunds by Channel
+
+-   [ ] Customer Count by Channel
+
+-   [ ] Repeat Rate by Channel
+
+### Visuals
+
+-   [ ] Bar chart: Revenue by Channel
+
+-   [ ] Funnel: Acquisition → First Purchase → Repeat Purchase
+
+-   [ ] Refund Rate by Channel
+
+------------------------------------------------------------------------
+
+## Products
+
+### KPIs
+
+-   [ ] Top Revenue Products
+
+-   [ ] Top Categories by Revenue
+
+-   [ ] Revenue by Billing Cycle (One-time vs Monthly vs Annual)
+
+-   [ ] Units Sold
+
+### Visuals
+
+-   [ ] Pareto Chart (top products by revenue)
+
+-   [ ] Annual vs Monthly Plan Performance
+
+-   [ ] Product Revenue by Country/Region
+
+-   [ ] Subscription Pipeline: Orders → Invoices → Renewals
+
+-   [ ] Attach Rate Module
+
+-   [ ] Product families: bundles, common add-ons, etc
+
+------------------------------------------------------------------------
+
+## Pricing
+
+### KPIs
+
+-   [ ] Discount Penetration (%)
+
+-   [ ] Revenue Lift When Discount is Used
+
+-   [ ] Repeat Purchase Rate (with vs without discount)
+
+-   [ ] TODO
+
+### Visuals
+
+-   [ ] Discount Usage Over Time
+
+-   [ ] Revenue From Discounted vs Full Price Sales
+
+-   [ ] Repeat Rate for Discount Users
+
+-   [ ] Average Selling Price by Currency/Country (100% = USA)
+
+------------------------------------------------------------------------
+
+## Refunds
+
+### KPIs
+
+-   [ ] Refund Rate
+
+-   [ ] Refund Amount (USD)
+
+-   [ ] Time to Refund
+
+-   [ ] Refunds by Product & Channel
+
+### Visuals
+
+-   [ ] Refunds by Product (tree map)
+
+-   [ ] Refunds by Channel
+
+-   [ ] Refund Trend Over Time
+
+-   [ ] Distribution of Refund Reasons
+
+------------------------------------------------------------------------
+
+## Geography
+
+### KPIs
+
+-   [ ] Revenue by Country
+
+-   [ ] Orders by Region
+
+-   [ ] ASP by Region
+
+-   [ ] Customer Count by Region
+
+### Visuals
+
+-   [ ] Geo Map: Revenue by Country
+
+-   [ ] Region-Based Revenue Comparison
+
+-   [ ] Currency Mix by Region
+
+-   [ ] top products per region
+
+------------------------------------------------------------------------
+
+## Customers
+
+### Visuals
+
+-   [ ] RFM heatmap
+
+-   [ ] Segment revenue comparisons
+
+-   [ ] Segment acquisition trends
