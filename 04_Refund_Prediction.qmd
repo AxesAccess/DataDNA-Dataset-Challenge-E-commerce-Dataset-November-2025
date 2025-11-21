@@ -1,0 +1,99 @@
+---
+title: "Refund Prediction Model"
+format: html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.width = 8, fig.height = 6)
+
+library(tidyverse)
+library(caret)
+library(pROC)
+library(PRROC)
+library(randomForest)
+library(xgboost)
+library(vip)       # for variable importance plots
+
+```
+
+## Load data
+
+```{r load-data}
+dataset <- read.csv("Events.csv")
+
+file_name <- "DataDNA Dataset Challenge - E-commerce Dataset - November 2025.xlsx"
+products <- readxl::read_excel(file_name, sheet = 2)
+dataset <- dataset |> left_join(products, by = "product_id")
+dataset |> glimpse()
+```
+
+Let's select meaningful variables for our analysis.
+
+```{r select-variables}
+dataset <- dataset |> select(
+  event_type, country, channel, payment_method, quantity, discount_code,
+  is_refunded, refund_reason, category
+)
+
+dataset <- dataset |>
+  mutate(across(where(is.character), as.factor))
+
+dataset <- dataset |> mutate(
+  is_refunded = ifelse(is_refunded, "Yes", "No"),
+  is_refunded = factor(is_refunded, levels = c("No", "Yes"))
+)
+
+dataset |> glimpse()
+```
+
+We're going to predict only refunds with the reason "Service
+dissatisfaction".
+
+```{r filter-refunds}
+dataset <- dataset |>
+  filter(is_refunded == "Yes" & refund_reason == "Service dissatisfaction" |
+    is_refunded == "No") |>
+  select(-refund_reason)
+```
+
+## Preprocess Data
+
+We're going to split dataset to train and test sets.
+
+```{r preprocess-data}
+set.seed(123)
+train_index <- createDataPartition(dataset$is_refunded, p = 0.7, list = FALSE)
+train <- dataset[train_index, ]
+test  <- dataset[-train_index, ]
+```
+
+## Logistic Regression
+
+We're going to use selected at the previous step variables.
+
+```{r logistic-regression}
+glm_model <- glm(is_refunded ~ .,
+  family = "binomial", data = train
+)
+summary(glm_model)
+```
+
+## Model Evaluation
+
+```{r glm-evaluation}
+
+glm_probs <- predict(glm_model, newdata = test, type = "response")
+
+glm_pred <- ifelse(glm_probs > 0.5, "Yes", "No") |> factor(levels = c("No", "Yes"))
+
+# Confusion matrix
+confusionMatrix(glm_pred, test$is_refunded, positive = "Yes")
+
+```
+
+## Conclusion
+
+The logistic regression model couldn’t predict refunds linked to service
+dissatisfaction, so any insights from slicing the data in the dashboard
+would be unreliable. We’ve decided not to move forward with more complex
+approaches as they're not suitable for visualization in the dashboard.
