@@ -103,6 +103,15 @@ output <- daily |>
   group_modify(~ forecast_country(.x)) |>
   ungroup()
 
+# Add rolling mean for smoother actual trend line
+output <- output |>
+  group_by(country) |>
+  arrange(ds) |>
+  mutate(
+    actual_ma = zoo::rollmean(actual, k = 90, fill = NA, align = "right")
+  ) |>
+  ungroup()
+
 output <- output |> rename(Date = ds)
 
 output |> tail()
@@ -120,11 +129,12 @@ Plot the results for a sample country.
 ```{r fig-plot-country-forecast, fig.height=5, fig.width=10}
 library(ggplot2)
 
-sample_country <- "Australia"
+sample_country <- "Spain"
 df_plot <- output |> filter(country == sample_country)
 ggplot(df_plot, aes(x = Date)) +
   geom_line(aes(y = actual), color = "blue") +
   geom_line(aes(y = forecast), color = "red") +
+  geom_line(aes(y = actual_ma), color = "green", linetype = "dashed") +
   geom_ribbon(aes(ymin = lower95, ymax = upper95), alpha = 0.2, fill = "orange") +
   labs(
     title = paste("Revenue Forecast for", sample_country),
@@ -219,6 +229,15 @@ forecast_channel <- function(df) {
 output <- daily |>
   group_by(channel) |>
   group_modify(~ forecast_channel(.x)) |>
+  ungroup()
+
+# Add rolling mean for smoother actual trend line
+output <- output |>
+  group_by(channel) |>
+  arrange(ds) |>
+  mutate(
+    actual_ma = zoo::rollmean(actual, k = 90, fill = NA, align = "right")
+  ) |>
   ungroup()
 
 output <- output |> rename(Date = ds)
@@ -340,6 +359,15 @@ forecast_category <- function(df) {
 output <- daily |>
   group_by(category) |>
   group_modify(~ forecast_category(.x)) |>
+  ungroup()
+
+# Add rolling mean for smoother actual trend line
+output <- output |>
+  group_by(category) |>
+  arrange(ds) |>
+  mutate(
+    actual_ma = zoo::rollmean(actual, k = 90, fill = NA, align = "right")
+  ) |>
   ungroup()
 
 output <- output |> rename(Date = ds)
