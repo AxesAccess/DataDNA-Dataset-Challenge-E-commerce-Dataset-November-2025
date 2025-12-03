@@ -1,6 +1,15 @@
 ---
 title: "Time Series Forecasts"
-format: html
+author: "Aleksei Prishchepo"
+date: "2025-11-16"
+fig-format: svg
+number-sections: true
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    highlight-style: tango
 ---
 
 In this notebook we're going to create forecasts for the time series
@@ -13,8 +22,8 @@ knitr::opts_chunk$set(dpi = 300, fig.width = 8)
 
 ## Load Data
 
-In Power BI we will reference the s table. Here we will load the data
-from a CSV file.
+In Power BI we will reference the Events table. Here we will load the
+data from a CSV file.
 
 ```{r load-data}
 library(readr)

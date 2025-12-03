@@ -5,15 +5,15 @@ date: "2025-11-16"
 fig-format: svg
 number-sections: true
 format:
-  # html:
-  #   toc: true
-  #   toc-depth: 3
-  #   toc-location: left
-  #   highlight-style: tango
-  pdf:
-    papersize: letter
+  html:
     toc: true
     toc-depth: 3
+    toc-location: left
+    highlight-style: tango
+  # pdf:
+  #   papersize: letter
+  #   toc: true
+  #   toc-depth: 3
 ---
 
 ```{r setup, include=FALSE}
@@ -55,8 +55,7 @@ data_dictionary |> na.omit() |>  knitr::kable()
 
 ## Data Glimpse
 
-Now let's take a quick look at the values in the fields of each
-dataset.
+Now let's take a quick look at the values in the fields of each dataset.
 
 ### Events
 
@@ -143,7 +142,9 @@ df_products <- df_products |>
 
 ### Events
 
-Events dataset consists of `r nrow(df_events)` rows and `r ncol(df_events)` columns. The `event_date` field ranges from `r min(df_events$event_date)` to `r max(df_events$event_date)`.
+Events dataset consists of `r nrow(df_events)` rows and
+`r ncol(df_events)` columns. The `event_date` field ranges from
+`r min(df_events$event_date)` to `r max(df_events$event_date)`.
 
 ```{r summary-statistics}
 skimr::skim(df_events)
@@ -256,7 +257,6 @@ df_events <- df_events |>
   select(-all_of(local_fields))
 ```
 
-
 ```{r fig-univariate-events-hist}
 #| fig-height: 6
 #| fig-width: 8
@@ -278,15 +278,16 @@ There is no need to do correlation analysis for the monetary fields.
 
 Some variables in the `Events` dataset need clarification:
 
-- `quantity`: This field represents the number of units sold in each event.
-- `unit_price_usd`: This field represents the price per unit in USD.
-- `discount_usd`: This field represents the discount applied in USD.
-- `tax_usd`: This field represents the tax applied in USD.
-- `net_revenue_usd`: This field represents the net revenue after discounts and taxes in 
- USD.
- 
- Let's check the integrity of these fields.
- 
+-   `quantity`: This field represents the number of units sold in each
+    event.
+-   `unit_price_usd`: This field represents the price per unit in USD.
+-   `discount_usd`: This field represents the discount applied in USD.
+-   `tax_usd`: This field represents the tax applied in USD.
+-   `net_revenue_usd`: This field represents the net revenue after
+    discounts and taxes in USD.
+
+Let's check the integrity of these fields.
+
 ```{r check-integrity}
 df_events <- df_events |>
   mutate(
@@ -298,8 +299,10 @@ integrity_issues <- df_events |>
 integrity_issues_count <- nrow(integrity_issues)
 integrity_issues_count
 ```
-It seems that there are `r integrity_issues_count` rows with integrity issues in the monetary fields.
- 
+
+It seems that there are `r integrity_issues_count` rows with integrity
+issues in the monetary fields.
+
 ### Customers Categorical Variables
 
 ```{r fig-univariate-customers-categorical}
@@ -320,7 +323,9 @@ df_customers |>
 
 ### Customers Numeric Variables
 
-Only `country_latitude` and `country_longitude` are numeric variables in the `Customers` dataset. We are not going to do correlation analysis for these fields.
+Only `country_latitude` and `country_longitude` are numeric variables in
+the `Customers` dataset. We are not going to do correlation analysis for
+these fields.
 
 ### Products Categorical Variables
 
@@ -344,7 +349,8 @@ df_products |>
 
 ### Products Numeric Variables
 
-There is only one numeric variable in the `Products` dataset: `base_price_usd_orig`. We will plot its distribution.
+There is only one numeric variable in the `Products` dataset:
+`base_price_usd_orig`. We will plot its distribution.
 
 ```{r fig-univariate-products-numeric}
 #| fig-height: 3
@@ -360,4 +366,3 @@ df_products |>
   geom_histogram(bins = 30, fill = "steelblue", color = "white") +
   theme(axis.title = element_blank())
 ```
-

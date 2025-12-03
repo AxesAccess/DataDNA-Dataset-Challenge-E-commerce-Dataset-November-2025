@@ -54,8 +54,12 @@ library(tidyr)
 # Set correct data types
 dataset <- dataset |>
   mutate(
-    event_date = as.POSIXct(event_date, format = "%d.%m.%Y %H:%M:%S", tz = "UTC"),
-    refund_datetime = as.POSIXct(refund_datetime, format = "%d.%m.%Y %H:%M:%S", tz = "UTC"),
+    event_date = as.POSIXct(event_date,
+      format = "%d.%m.%Y %H:%M:%S", tz = "UTC"
+    ),
+    refund_datetime = as.POSIXct(refund_datetime,
+      format = "%d.%m.%Y %H:%M:%S", tz = "UTC"
+    ),
     `Date` = as.Date(event_date),
     latitude = as.numeric(latitude),
     longitude = as.numeric(longitude),
@@ -66,11 +70,12 @@ dataset <- dataset |>
     net_revenue_local = as.numeric(net_revenue_local),
     fx_rate_to_usd = as.numeric(fx_rate_to_usd),
     net_revenue_usd = as.numeric(net_revenue_usd)
-)
+  )
 
 # Handle missing values
 dataset <- dataset |>
-  mutate(region = ifelse(is.na(region) | length(region) == 0, "NOAM", as.character(region)))
+  mutate(region = ifelse(is.na(region) |
+    length(region) == 0, "NOAM", as.character(region)))
 dataset <- dataset |> mutate(region = as.factor(region))
 
 # Convert currency to USD
@@ -122,7 +127,10 @@ dataset <- dataset |>
 # Time Before Refund
 dataset <- dataset |>
   mutate(
-    time_to_refund = as.numeric(difftime(refund_datetime, event_date, units = "days")),
+    time_to_refund = as.numeric(difftime(refund_datetime,
+      event_date,
+      units = "days"
+    )),
   )
 
 # Drop local currency fields
@@ -163,14 +171,19 @@ library(lubridate)
 library(dplyr)
 # Assuming 'dataset' is the preprocessed Events table
 dataset <- dataset |>
-  mutate(event_date = as.POSIXct(event_date, format = "%d.%m.%Y %H:%M:%S", tz = "UTC"))
+  mutate(event_date = as.POSIXct(event_date,
+    format = "%d.%m.%Y %H:%M:%S", tz = "UTC"
+  ))
 # Define the reference date as the latest event date in the dataset
 lastest_date <- max(dataset$event_date, na.rm = TRUE)
 
 output <- dataset |>
   group_by(customer_id) |>
   summarise(
-    Recency = as.numeric(difftime(lastest_date, max(event_date), units = "days")),
+    Recency = as.numeric(difftime(lastest_date,
+      max(event_date),
+      units = "days"
+    )),
     Frequency = n_distinct(event_id),
     Monetary = sum(net_revenue_usd, na.rm = TRUE)
   ) |>
@@ -290,7 +303,10 @@ library(ggplot2)
 ggplot(output, aes(x = ABC_XYZ_Class)) +
   geom_bar(fill = "coral") +
   theme_minimal() +
-  labs(title = "Distribution of ABC/XYZ Classes", x = "ABC/XYZ Class", y = "Count") +
+  labs(
+    title = "Distribution of ABC/XYZ Classes",
+    x = "ABC/XYZ Class", y = "Count"
+  ) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
@@ -298,7 +314,6 @@ Let's visualize the distribution of Coefficient of Variation (CoV) with
 thresholds for Y and Z classes.
 
 ```{r abc-xyz-cov-histogram}
-
 Y_threshold <- output[output$XYZ_Class == "Y", "CoV"] |> min(na.rm = TRUE)
 Z_threshold <- output[output$XYZ_Class == "Z", "CoV"] |> min(na.rm = TRUE)
 
@@ -308,8 +323,14 @@ output |> ggplot(aes(x = CoV)) +
     title = "Histogram of Coefficient of Variation (CoV)",
     x = "CoV", y = "Frequency"
   ) +
-  geom_vline(xintercept = Y_threshold, color = "orange", linetype = "dashed", size = 1) +
-  geom_vline(xintercept = Z_threshold, color = "red", linetype = "dashed", size = 1) +
+  geom_vline(
+    xintercept = Y_threshold, color = "orange",
+    linetype = "dashed", size = 1
+  ) +
+  geom_vline(
+    xintercept = Z_threshold, color = "red",
+    linetype = "dashed", size = 1
+  ) +
   theme_minimal()
 ```
 
@@ -321,21 +342,22 @@ code to Power Query.
 Let's create the data preprocessing steps for the Customers table in
 Power Query.
 
-```{r load-data}
+```{r load-customers-data}
 dataset <- readxl::read_xlsx(file_name, sheet = 3)
 ```
 
 Next chunk will contain the R code for preprocessing the Customers
 table.
 
-```{r preprocess-events}
+```{r preprocess-customers-events}
 library(tidyverse)
 library(dplyr)
 library(tidyr)
 
 # Handle missing values
 dataset <- dataset |>
-  mutate(region = ifelse(is.na(region)| length(region) == 0, "NOAM", as.character(region)))
+  mutate(region = ifelse(is.na(region) |
+    length(region) == 0, "NOAM", as.character(region)))
 output <- dataset |> mutate(region = as.factor(region))
 
 ```
