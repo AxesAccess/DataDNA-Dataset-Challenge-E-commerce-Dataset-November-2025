@@ -402,5 +402,12 @@ ggplot(df_plot, aes(x = Date)) +
   ) +
   theme_minimal()
 
-
 ```
+
+## References
+
+-   [Building an E-Commerce Dashboard with Power BI and R –
+    Blog](https://blog.frequentist.org/posts/20251126-e-commerce-dashboard/)
+-   [Repository on
+    GitHub](https://github.com/AxesAccess/DataDNA-Dataset-Challenge-E-commerce-Dataset-November-2025)
+    

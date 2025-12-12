@@ -106,3 +106,11 @@ The logistic regression model couldn’t predict refunds linked to service
 dissatisfaction, so any insights from slicing the data in the dashboard
 would be unreliable. We’ve decided not to move forward with more complex
 approaches as they're not suitable for visualization in the dashboard.
+
+
+## References
+
+-   [Building an E-Commerce Dashboard with Power BI and R –
+    Blog](https://blog.frequentist.org/posts/20251126-e-commerce-dashboard/)
+-   [Repository on
+    GitHub](https://github.com/AxesAccess/DataDNA-Dataset-Challenge-E-commerce-Dataset-November-2025)

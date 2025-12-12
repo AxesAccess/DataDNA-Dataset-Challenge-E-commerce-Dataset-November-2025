@@ -366,3 +366,10 @@ output <- dataset |> mutate(region = as.factor(region))
 
 We don't need to do any preprocessing for the Products table as all
 fields are already in correct format and there are no missing values.
+
+## References
+
+-   [Building an E-Commerce Dashboard with Power BI and R –
+    Blog](https://blog.frequentist.org/posts/20251126-e-commerce-dashboard/)
+-   [Repository on
+    GitHub](https://github.com/AxesAccess/DataDNA-Dataset-Challenge-E-commerce-Dataset-November-2025)
