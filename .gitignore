@@ -45,5 +45,13 @@ docs/
 # translation temp files
 po/*~
 
-# RStudio Connect folder
+# RStudio
 rsconnect/
+*.Rproj
+
+# Data
+*.csv
+
+# Output HTML
+*.html
+*_files/*
